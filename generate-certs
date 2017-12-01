@@ -22,6 +22,7 @@ export SSL_EXPIRE=${SSL_EXPIRE:-"60"}
 export SSL_SUBJECT=${SSL_SUBJECT:-"example.com"}
 export SSL_DNS=${SSL_DNS}
 export SSL_IP=${SSL_IP}
+export SSL_CRL=${SSL_CRL}
 
 export OUTPUT=${OUTPUT:-"yaml"}
 
@@ -42,7 +43,32 @@ else
 fi
 
 echo "====> Generating new config file ${SSL_CONFIG}"
+
+if [[ ${SSL_CRL} ]]; then
 cat > ${SSL_CONFIG} <<EOM
+[ ca ]
+default_ca	= CA_default		# The default ca section
+
+[ CA_default ]
+database = .db.pem
+crlnumber = ca.srl
+
+default_days	= 365			# how long to certify for
+default_crl_days= 30			# how long before next CRL
+default_md	= default		# use public key default MD
+preserve	= no			# keep passed DN ordering
+
+[ crl_ext ]
+authorityKeyIdentifier=keyid:always,issuer:always
+EOM
+
+
+touch .db.pem{,.attr}
+
+fi
+
+
+cat >> ${SSL_CONFIG} <<EOM
 [req]
 req_extensions = v3_req
 distinguished_name = req_distinguished_name
@@ -52,6 +78,10 @@ basicConstraints = CA:FALSE
 keyUsage = nonRepudiation, digitalSignature, keyEncipherment
 extendedKeyUsage = clientAuth, serverAuth
 EOM
+
+if [[ ${SSL_CRL} ]]; then
+    echo "crlDistributionPoints = URI:${SSL_CRL}" >> ${SSL_CONFIG}
+fi
 
 if [[ -n ${SSL_DNS} || -n ${SSL_IP} ]]; then
     cat >> ${SSL_CONFIG} <<EOM
@@ -73,6 +103,12 @@ EOM
         done
     fi
 fi
+
+if [[ ${SSL_CRL} ]]; then
+    echo "[ usr_cert ]" >> ${SSL_CONFIG}
+    echo "crlDistributionPoints = URI:${SSL_CRL}" >> ${SSL_CONFIG}
+fi
+
 
 [[ -z $SILENT ]] && echo "====> Generating new SSL KEY ${SSL_KEY}"
 openssl genrsa -out ${SSL_KEY} ${SSL_SIZE} > /dev/null || exit 1
