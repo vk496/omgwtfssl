@@ -80,7 +80,7 @@ extendedKeyUsage = clientAuth, serverAuth
 EOM
 
 if [[ ${SSL_CRL} ]]; then
-    echo "crlDistributionPoints = URI:${SSL_CRL}" >> ${SSL_CONFIG}
+    echo "crlDistributionPoints = @crl_section" >> ${SSL_CONFIG}
 fi
 
 if [[ -n ${SSL_DNS} || -n ${SSL_IP} ]]; then
@@ -106,9 +106,18 @@ fi
 
 if [[ ${SSL_CRL} ]]; then
     echo "[ usr_cert ]" >> ${SSL_CONFIG}
-    echo "crlDistributionPoints = URI:${SSL_CRL}" >> ${SSL_CONFIG}
-fi
+    echo "crlDistributionPoints = @crl_section" >> ${SSL_CONFIG}
 
+    echo "[ crl_section ]" >> ${SSL_CONFIG}
+    IFS=","
+    crl=(${SSL_CRL})
+#     dns+=(${SSL_SUBJECT})
+    for i in "${!crl[@]}"; do
+      echo URI.$((i+1)) = ${crl[$i]} >> ${SSL_CONFIG}
+    done
+
+fi
+exit
 
 [[ -z $SILENT ]] && echo "====> Generating new SSL KEY ${SSL_KEY}"
 openssl genrsa -out ${SSL_KEY} ${SSL_SIZE} > /dev/null || exit 1
