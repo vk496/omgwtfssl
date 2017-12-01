@@ -35,11 +35,40 @@ else
     openssl genrsa -out ${CA_KEY} ${SSL_SIZE} > /dev/null
 fi
 
+
+cat > ${SSL_CONFIG}.rm <<EOM
+[req]
+req_extensions = v3_req
+distinguished_name = req_distinguished_name
+[req_distinguished_name]
+[ v3_req ]
+basicConstraints = CA:FALSE
+keyUsage = nonRepudiation, digitalSignature, keyEncipherment
+extendedKeyUsage = clientAuth, serverAuth
+EOM
+
+if [[ ${SSL_CRL} ]]; then
+echo "crlDistributionPoints = @crl_section" >> ${SSL_CONFIG}.rm
+echo "[ crl_section ]" >> ${SSL_CONFIG}.rm
+IFS=","
+crl=(${SSL_CRL})
+for i in "${!crl[@]}"; do
+    echo URI.$((i+1)) = ${crl[$i]} >> ${SSL_CONFIG}.rm
+done
+
+fi
+
+
 if [[ -e ./${CA_CERT} ]]; then
     [[ -z $SILENT ]] && echo "====> Using existing CA Certificate ${CA_CERT}"
 else
     [[ -z $SILENT ]] && echo "====> Generating new CA Certificate ${CA_CERT}"
-    openssl req -x509 -new -nodes -key ${CA_KEY} -days ${CA_EXPIRE} -out ${CA_CERT} -subj "/CN=${CA_SUBJECT}" > /dev/null  || exit 1
+    
+    if [[ ${SSL_CRL} ]]; then
+        openssl req -x509 -new -nodes -key ${CA_KEY} -days ${CA_EXPIRE} -out ${CA_CERT} -subj "/CN=${CA_SUBJECT}" -config ${SSL_CONFIG}.rm -extensions v3_req > /dev/null  || exit 1
+    else
+        openssl req -x509 -new -nodes -key ${CA_KEY} -days ${CA_EXPIRE} -out ${CA_CERT} -subj "/CN=${CA_SUBJECT}"> /dev/null  || exit 1
+    fi
 fi
 
 echo "====> Generating new config file ${SSL_CONFIG}"
@@ -62,26 +91,13 @@ preserve	= no			# keep passed DN ordering
 authorityKeyIdentifier=keyid:always,issuer:always
 EOM
 
-
 touch .db.pem{,.attr}
 
 fi
 
-
-cat >> ${SSL_CONFIG} <<EOM
-[req]
-req_extensions = v3_req
-distinguished_name = req_distinguished_name
-[req_distinguished_name]
-[ v3_req ]
-basicConstraints = CA:FALSE
-keyUsage = nonRepudiation, digitalSignature, keyEncipherment
-extendedKeyUsage = clientAuth, serverAuth
-EOM
-
-if [[ ${SSL_CRL} ]]; then
-    echo "crlDistributionPoints = @crl_section" >> ${SSL_CONFIG}
-fi
+cat ${SSL_CONFIG} ${SSL_CONFIG}.rm > ${SSL_CONFIG}.2
+rm ${SSL_CONFIG}.rm ${SSL_CONFIG}
+mv ${SSL_CONFIG}.2 ${SSL_CONFIG}
 
 if [[ -n ${SSL_DNS} || -n ${SSL_IP} ]]; then
     cat >> ${SSL_CONFIG} <<EOM
@@ -108,16 +124,8 @@ if [[ ${SSL_CRL} ]]; then
     echo "[ usr_cert ]" >> ${SSL_CONFIG}
     echo "crlDistributionPoints = @crl_section" >> ${SSL_CONFIG}
 
-    echo "[ crl_section ]" >> ${SSL_CONFIG}
-    IFS=","
-    crl=(${SSL_CRL})
-#     dns+=(${SSL_SUBJECT})
-    for i in "${!crl[@]}"; do
-      echo URI.$((i+1)) = ${crl[$i]} >> ${SSL_CONFIG}
-    done
-
 fi
-exit
+
 
 [[ -z $SILENT ]] && echo "====> Generating new SSL KEY ${SSL_KEY}"
 openssl genrsa -out ${SSL_KEY} ${SSL_SIZE} > /dev/null || exit 1
