@@ -43,10 +43,20 @@ default_ca	= CA_default		# The default ca section
 database = .db.pem
 crlnumber = ${CA_SUBJECT}.srl
 
-default_days	= 365			# how long to certify for
 default_crl_days= 30			# how long before next CRL
 default_md	= default		# use public key default MD
-preserve	= no			# keep passed DN ordering
+EOM
+
+if [[ ${SSL_CRL} ]]; then
+
+cat >> ${SSL_CONFIG} <<EOM
+[ v3_ca ]
+crlDistributionPoints = @crl_section
+EOM
+
+fi
+
+cat >> ${SSL_CONFIG} <<EOM
 
 [ crl_ext ]
 authorityKeyIdentifier=keyid:always,issuer:always
@@ -63,17 +73,6 @@ EOM
 
 if [[ ${SSL_CRL} ]]; then
     echo "crlDistributionPoints = @crl_section" >> ${SSL_CONFIG}
-    echo "[ usr_cert ]" >> ${SSL_CONFIG}
-    echo "crlDistributionPoints = @crl_section" >> ${SSL_CONFIG}
-    echo "[ crl_section ]" >> ${SSL_CONFIG}
-
-    IFS=","
-    crl=(${SSL_CRL})
-    for i in "${!crl[@]}"; do
-    echo URI.$((i+1)) = ${crl[$i]} >> ${SSL_CONFIG}
-    done
-    
-    touch .db.pem{,.attr}
 fi
 
 
@@ -98,13 +97,28 @@ EOM
     fi
 fi
 
+
+if [[ ${SSL_CRL} ]]; then
+    echo "[ usr_cert ]" >> ${SSL_CONFIG}
+    echo "crlDistributionPoints = @crl_section" >> ${SSL_CONFIG}
+    echo "[ crl_section ]" >> ${SSL_CONFIG}
+
+    IFS=","
+    crl=(${SSL_CRL})
+    for i in "${!crl[@]}"; do
+    echo URI.$((i+1)) = ${crl[$i]} >> ${SSL_CONFIG}
+    done
+    
+    touch .db.pem{,.attr}
+fi
+
 if [[ -e ./${CA_CERT} ]]; then
     [[ -z $SILENT ]] && echo "====> Using existing CA Certificate ${CA_CERT}"
 else
     [[ -z $SILENT ]] && echo "====> Generating new CA Certificate ${CA_CERT}"
     
     if [[ ${SSL_CRL} ]]; then
-        openssl req -x509 -new -nodes -key ${CA_KEY} -days ${CA_EXPIRE} -out ${CA_CERT} -subj "/CN=${CA_SUBJECT}" -config ${SSL_CONFIG} -extensions v3_req > /dev/null  || exit 1
+        openssl req -x509 -new -nodes -key ${CA_KEY} -days ${CA_EXPIRE} -out ${CA_CERT} -subj "/CN=${CA_SUBJECT}" -config ${SSL_CONFIG} -extensions v3_ca  > /dev/null  || exit 1
     else
         openssl req -x509 -new -nodes -key ${CA_KEY} -days ${CA_EXPIRE} -out ${CA_CERT} -subj "/CN=${CA_SUBJECT}"> /dev/null  || exit 1
     fi
