@@ -43,7 +43,6 @@ default_ca	= CA_default		# The default ca section
 database = .db.pem
 crlnumber = ${CA_SUBJECT}.srl
 
-default_days	= 365			# how long to certify for
 default_crl_days= 30			# how long before next CRL
 default_md	= default		# use public key default MD
 EOM
