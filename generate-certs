@@ -67,7 +67,7 @@ distinguished_name = req_distinguished_name
 [ v3_req ]
 basicConstraints = CA:FALSE
 keyUsage = nonRepudiation, digitalSignature, keyEncipherment
-extendedKeyUsage = clientAuth, serverAuth
+extendedKeyUsage = serverAuth
 EOM
 
 
@@ -100,6 +100,9 @@ fi
 
 if [[ ${SSL_CRL} ]]; then
     echo "[ usr_cert ]" >> ${SSL_CONFIG}
+    echo "basicConstraints = CA:FALSE" >> ${SSL_CONFIG}
+    echo "keyUsage = nonRepudiation, digitalSignature, keyEncipherment" >> ${SSL_CONFIG}
+    echo "extendedKeyUsage = clientAuth" >> ${SSL_CONFIG}
     echo "crlDistributionPoints = @crl_section" >> ${SSL_CONFIG}
     echo "[ crl_section ]" >> ${SSL_CONFIG}
 
