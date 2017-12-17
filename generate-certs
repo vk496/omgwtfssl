@@ -142,6 +142,13 @@ if [[ ${SSL_OCSP} ]]; then
     echo OCSP\;URI.$((i+1)) = ${ocsp[$i]} >> ${SSL_CONFIG}
     done
     
+cat >> ${SSL_CONFIG} <<EOM
+[ v3_OCSP ]
+basicConstraints = CA:FALSE
+keyUsage = nonRepudiation, digitalSignature, keyEncipherment
+extendedKeyUsage = OCSPSigning
+EOM
+    
     touch .db.pem{,.attr}
 fi
 
