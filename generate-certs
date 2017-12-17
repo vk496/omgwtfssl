@@ -23,6 +23,7 @@ export SSL_SUBJECT=${SSL_SUBJECT:-"example.com"}
 export SSL_DNS=${SSL_DNS}
 export SSL_IP=${SSL_IP}
 export SSL_CRL=${SSL_CRL}
+export SSL_OCSP=${SSL_OCSP}
 
 export OUTPUT=${OUTPUT:-"yaml"}
 
@@ -47,13 +48,20 @@ default_crl_days= 30			# how long before next CRL
 default_md	= default		# use public key default MD
 EOM
 
-if [[ ${SSL_CRL} ]]; then
+if [[ ${SSL_CRL} ]] || [[ ${SSL_OCSP} ]]; then
 
 cat >> ${SSL_CONFIG} <<EOM
 [ v3_ca ]
-crlDistributionPoints = @crl_section
 EOM
 
+fi
+
+if [[ ${SSL_CRL} ]]; then
+    echo "crlDistributionPoints = @crl_section" >> ${SSL_CONFIG}
+fi
+
+if [[ ${SSL_OCSP} ]]; then
+    echo "authorityInfoAccess = @ocsp_section" >> ${SSL_CONFIG}
 fi
 
 cat >> ${SSL_CONFIG} <<EOM
@@ -73,6 +81,10 @@ EOM
 
 if [[ ${SSL_CRL} ]]; then
     echo "crlDistributionPoints = @crl_section" >> ${SSL_CONFIG}
+fi
+
+if [[ ${SSL_OCSP} ]]; then
+    echo "authorityInfoAccess = @ocsp_section" >> ${SSL_CONFIG}
 fi
 
 
@@ -98,12 +110,18 @@ EOM
 fi
 
 
-if [[ ${SSL_CRL} ]]; then
+if [[ ${SSL_CRL} ]] || [[ ${SSL_OCSP} ]]; then
+
     echo "[ usr_cert ]" >> ${SSL_CONFIG}
     echo "basicConstraints = CA:FALSE" >> ${SSL_CONFIG}
     echo "keyUsage = nonRepudiation, digitalSignature, keyEncipherment" >> ${SSL_CONFIG}
     echo "extendedKeyUsage = clientAuth" >> ${SSL_CONFIG}
     echo "crlDistributionPoints = @crl_section" >> ${SSL_CONFIG}
+    echo "authorityInfoAccess = @ocsp_section" >> ${SSL_CONFIG}
+
+fi
+
+if [[ ${SSL_CRL} ]]; then
     echo "[ crl_section ]" >> ${SSL_CONFIG}
 
     IFS=","
@@ -114,6 +132,19 @@ if [[ ${SSL_CRL} ]]; then
     
     touch .db.pem{,.attr}
 fi
+
+if [[ ${SSL_OCSP} ]]; then
+    echo "[ ocsp_section ]" >> ${SSL_CONFIG}
+
+    IFS=","
+    ocsp=(${SSL_OCSP})
+    for i in "${!ocsp[@]}"; do
+    echo OCSP\;URI.$((i+1)) = ${ocsp[$i]} >> ${SSL_CONFIG}
+    done
+    
+    touch .db.pem{,.attr}
+fi
+
 
 if [[ -e ./${CA_CERT} ]]; then
     [[ -z $SILENT ]] && echo "====> Using existing CA Certificate ${CA_CERT}"
