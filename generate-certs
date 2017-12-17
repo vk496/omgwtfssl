@@ -183,7 +183,7 @@ openssl req -new -key ${SSL_KEY} -out ${SSL_CSR} -subj "/CN=${SSL_SUBJECT}" -con
 
 for f in .db*; do mv $f ${f}2; touch $f; done #OpenSSL bug WTF?
 
-openssl ca -batch -config ${SSL_CONFIG} -keyfile ${CA_KEY} -cert ${CA_CERT} -outdir . -in ${SSL_CSR} -out ${SSL_CERT} -extensions v3_req -create_serial -extfile ${SSL_CONFIG} -days ${SSL_EXPIRE} -notext
+openssl ca -batch -config ${SSL_CONFIG} -keyfile ${CA_KEY} -cert ${CA_CERT} -outdir . -in ${SSL_CSR} -out ${SSL_CERT} -extensions v3_req -create_serial -extfile ${SSL_CONFIG} -days ${SSL_EXPIRE} -notext -preserveDN
 
 for f in .db*2; do cat $f ${f::-1} > ${f}3; rm ${f::-1} && rm $f ; mv ${f}3 ${f::-1} ; done #OpenSSL bug WTF?
 
