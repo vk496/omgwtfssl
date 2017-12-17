@@ -59,6 +59,8 @@ if [[ ${SSL_CRL} ]] || [[ ${SSL_OCSP} ]]; then
 
 cat >> ${SSL_CONFIG} <<EOM
 [ v3_ca ]
+basicConstraints = critical, CA:true
+keyUsage = critical, digitalSignature, cRLSign, keyCertSign
 EOM
 
 fi
@@ -163,11 +165,7 @@ if [[ -e ./${CA_CERT} ]]; then
 else
     [[ -z $SILENT ]] && echo "====> Generating new CA Certificate ${CA_CERT}"
     
-    if [[ ${SSL_CRL} ]]; then
         openssl req -x509 -new -nodes -key ${CA_KEY} -days ${CA_EXPIRE} -out ${CA_CERT} -subj "/CN=${CA_SUBJECT}" -config ${SSL_CONFIG} -extensions v3_ca  > /dev/null  || exit 1
-    else
-        openssl req -x509 -new -nodes -key ${CA_KEY} -days ${CA_EXPIRE} -out ${CA_CERT} -subj "/CN=${CA_SUBJECT}"> /dev/null  || exit 1
-    fi
 fi
 
 echo "====> Generating new config file ${SSL_CONFIG}"
