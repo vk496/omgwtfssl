@@ -36,16 +36,23 @@ else
     openssl genrsa -out ${CA_KEY} ${SSL_SIZE} > /dev/null
 fi
 
+touch .db.pem{,.attr}
+[ ! -f .crlnumber ] && echo 1000 > .crlnumber
 
 cat > ${SSL_CONFIG} <<EOM
 default_ca	= CA_default		# The default ca section
 
+[ policy ]
+
 [ CA_default ]
 database = .db.pem
-crlnumber = ${CA_SUBJECT}.srl
+crlnumber = .crlnumber
+serial          = .serial
 
 default_crl_days= 30			# how long before next CRL
 default_md	= default		# use public key default MD
+policy = policy
+unique_subject = no
 EOM
 
 if [[ ${SSL_CRL} ]] || [[ ${SSL_OCSP} ]]; then
@@ -130,7 +137,6 @@ if [[ ${SSL_CRL} ]]; then
     echo URI.$((i+1)) = ${crl[$i]} >> ${SSL_CONFIG}
     done
     
-    touch .db.pem{,.attr}
 fi
 
 if [[ ${SSL_OCSP} ]]; then
@@ -149,7 +155,6 @@ keyUsage = nonRepudiation, digitalSignature, keyEncipherment
 extendedKeyUsage = OCSPSigning
 EOM
     
-    touch .db.pem{,.attr}
 fi
 
 
@@ -175,8 +180,14 @@ openssl genrsa -out ${SSL_KEY} ${SSL_SIZE} > /dev/null || exit 1
 openssl req -new -key ${SSL_KEY} -out ${SSL_CSR} -subj "/CN=${SSL_SUBJECT}" -config ${SSL_CONFIG} > /dev/null || exit 1
 
 [[ -z $SILENT ]] && echo "====> Generating new SSL CERT ${SSL_CERT}"
-openssl x509 -req -in ${SSL_CSR} -CA ${CA_CERT} -CAkey ${CA_KEY} -CAcreateserial -out ${SSL_CERT} \
-    -days ${SSL_EXPIRE} -extensions v3_req -extfile ${SSL_CONFIG} > /dev/null || exit 1
+# openssl x509 -req -in ${SSL_CSR} -CA ${CA_CERT} -CAkey ${CA_KEY} -CAcreateserial -out ${SSL_CERT} \
+#     -days ${SSL_EXPIRE} -extensions v3_req -extfile ${SSL_CONFIG} > /dev/null || exit 1
+
+for f in .db*; do mv $f ${f}2; touch $f; done #OpenSSL bug WTF?
+
+openssl ca -batch -config ${SSL_CONFIG} -keyfile ${CA_KEY} -cert ${CA_CERT} -outdir . -in ${SSL_CSR} -out ${SSL_CERT} -extensions v3_req -create_serial -extfile ${SSL_CONFIG} -days ${SSL_EXPIRE} -notext
+
+for f in .db*2; do cat $f ${f::-1} > ${f}3; rm ${f::-1} && rm $f ; mv ${f}3 ${f::-1} ; done #OpenSSL bug WTF?
 
 if [[ -z $SILENT ]]; then
 echo "====> Complete"
