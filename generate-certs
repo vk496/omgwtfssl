@@ -55,15 +55,12 @@ policy = policy
 unique_subject = no
 EOM
 
-if [[ ${SSL_CRL} ]] || [[ ${SSL_OCSP} ]]; then
-
 cat >> ${SSL_CONFIG} <<EOM
 [ v3_ca ]
 basicConstraints = critical, CA:true
 keyUsage = critical, digitalSignature, cRLSign, keyCertSign
 EOM
 
-fi
 
 if [[ ${SSL_CRL} ]]; then
     echo "crlDistributionPoints = @crl_section" >> ${SSL_CONFIG}
@@ -138,7 +135,7 @@ if [[ ${SSL_CRL} ]]; then
     for i in "${!crl[@]}"; do
     echo URI.$((i+1)) = ${crl[$i]} >> ${SSL_CONFIG}
     done
-    
+
 fi
 
 if [[ ${SSL_OCSP} ]]; then
@@ -149,14 +146,14 @@ if [[ ${SSL_OCSP} ]]; then
     for i in "${!ocsp[@]}"; do
     echo OCSP\;URI.$((i+1)) = ${ocsp[$i]} >> ${SSL_CONFIG}
     done
-    
+
 cat >> ${SSL_CONFIG} <<EOM
 [ v3_OCSP ]
 basicConstraints = CA:FALSE
 keyUsage = nonRepudiation, digitalSignature, keyEncipherment
 extendedKeyUsage = OCSPSigning
 EOM
-    
+
 fi
 
 
@@ -164,7 +161,7 @@ if [[ -e ./${CA_CERT} ]]; then
     [[ -z $SILENT ]] && echo "====> Using existing CA Certificate ${CA_CERT}"
 else
     [[ -z $SILENT ]] && echo "====> Generating new CA Certificate ${CA_CERT}"
-    
+
         openssl req -x509 -new -nodes -key ${CA_KEY} -days ${CA_EXPIRE} -out ${CA_CERT} -subj "/CN=${CA_SUBJECT}" -config ${SSL_CONFIG} -extensions v3_ca  > /dev/null  || exit 1
 fi
 
@@ -199,7 +196,7 @@ if [[ ${OUTPUT} == "k8s" ]]; then
 apiVersion: v1
 kind: Secret
 metadata:
-  name: omgwtfssl 
+  name: omgwtfssl
   namespace: default
 type: kubernetes.io/tls
 data:
@@ -207,19 +204,19 @@ EOM
 
   echo -n "  ca_key: "
   cat $CA_KEY | base64 | tr '\n' ',' | sed 's/,//g'
-  echo 
+  echo
   echo -n "  ca_cert: "
   cat $CA_CERT | base64 | tr '\n' ',' | sed 's/,//g'
-  echo 
+  echo
   echo -n "  ssl_key: "
   cat $SSL_KEY | base64 | tr '\n' ',' | sed 's/,//g'
-  echo 
+  echo
   echo  -n "  ssl_csr: "
   cat $SSL_CSR | base64 | tr '\n' ',' | sed 's/,//g'
-  echo 
+  echo
   echo -n "  ssl_cert: "
   cat $SSL_CERT | base64 | tr '\n' ',' | sed 's/,//g'
-  echo 
+  echo
 
 else
   echo "====> Output results as YAML"
